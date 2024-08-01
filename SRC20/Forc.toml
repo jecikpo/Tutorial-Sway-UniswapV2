@@ -1,0 +1,8 @@
+[project]
+authors = ["jecikpo"]
+entry = "src20.sw"
+license = "Apache-2.0"
+name = "src20"
+
+[dependencies]
+sway_libs = { git = "https://github.com/FuelLabs/sway-libs", tag = "v0.22.0" }

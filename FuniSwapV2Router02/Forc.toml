@@ -1,0 +1,7 @@
+[project]
+authors = ["JecikPo"]
+entry = "funi_router02.sw"
+license = "Apache-2.0"
+name = "FuniSwapV2Router02"
+
+[dependencies]
