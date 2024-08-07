@@ -63,6 +63,25 @@ impl ContractInstance<FuniSwapV2Pair<WalletUnlocked>> {
     /*
       call mint() function.
      */
+     pub async fn call_get_reserves(self) -> (u64, u64) {
+        let result = self.instance.clone()
+        .with_account(self.wallet)
+        .methods()
+        .get_reserves()
+        .with_tx_policies(
+            TxPolicies::default()
+            .with_script_gas_limit(self.gas_limit)
+        )
+        .call()
+        .await
+        .unwrap();
+
+        result.value
+    }
+
+    /*
+      call mint() function.
+     */
      pub async fn call_mint(self, to: Identity) -> (u64) {
         let result = self.instance.clone()
         .with_account(self.wallet)
@@ -103,6 +122,24 @@ impl ContractInstance<FuniSwapV2Pair<WalletUnlocked>> {
         .unwrap();
 
         result.value
+    }
+
+    /*
+      call swap() function.
+     */
+     pub async fn call_swap(self, amount0_out: u64, amount1_out: u64, to: Identity) {
+        let _ = self.instance.clone()
+        .with_account(self.wallet)
+        .methods()
+        .swap(amount0_out, amount1_out, to)
+        .append_variable_outputs(2)
+        .with_tx_policies(
+            TxPolicies::default()
+            .with_script_gas_limit(self.gas_limit)
+        )
+        .call()
+        .await
+        .unwrap();
     }
 }
 
