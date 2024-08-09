@@ -1,5 +1,7 @@
 contract;
 
+mod events;
+
 use std::{
     asset::{
         burn,
@@ -21,8 +23,11 @@ use std::{
     asset_id::*,
 };
 
-/// Errors
-pub const INCORRECT_ASSET_ID_SIGNAL = 0xffff_ffff_ffff_0000;
+use ::events::{
+    MintEvent,
+    BurnEvent,
+    SwapEvent,
+};
 
 /// The name of a specific asset minted by this contract.
 const NAME: str[5] = __to_str_array("FuSV2");
@@ -100,6 +105,14 @@ impl FuniSwapV2Pair for Contract {
         require(liquidity > 0, "Insufficient Liquidity");
         _mint(to, liquidity);
         _update(balance0, balance1, reserve0, reserve1);
+
+        log(MintEvent{
+            sender: msg_sender().unwrap(),
+            to,
+            amount0,
+            amount1,
+        });
+
         liquidity
     }
 
@@ -109,8 +122,8 @@ impl FuniSwapV2Pair for Contract {
         let total_supply = storage.total_supply.read();
         let liquidity = msg_amount();
         let (reserve0, reserve1) = _get_reserves();
-        let mut balance0 = this_balance(token0);
-        let mut balance1 = this_balance(token1);
+        let balance0 = this_balance(token0);
+        let balance1 = this_balance(token1);
 
         let amount0 = (liquidity * balance0) / total_supply;
         let amount1 = (liquidity * balance1) / total_supply;
@@ -119,15 +132,19 @@ impl FuniSwapV2Pair for Contract {
         transfer(to, token0, amount0);
         transfer(to, token1, amount1);
 
-        balance0 = this_balance(token0);
-        balance1 = this_balance(token1);
-
         _update(
             this_balance(token0),
             this_balance(token1),
             reserve0,
             reserve1
         );
+
+        log(BurnEvent{
+            sender: msg_sender().unwrap(),
+            to,
+            amount0,
+            amount1,
+        });
 
         (amount0, amount1)
     }
@@ -166,6 +183,15 @@ impl FuniSwapV2Pair for Contract {
             "K Invariant Incorrect"
         );
         _update(balance0, balance1, reserve0, reserve1);
+
+        log(SwapEvent{
+            sender: msg_sender().unwrap(),
+            to,
+            amount0_in,
+            amount1_in,
+            amount0_out,
+            amount1_out,
+        });
     }
 }
 
@@ -230,10 +256,8 @@ fn _mint(recipient: Identity, amount: u64) {
     mint_to(recipient, DEFAULT_SUB_ID, amount);
 }
 
-#[payable]
 #[storage(read, write)]
 fn _burn(amount: u64) {
-    require(msg_amount() >= amount, "Incorrect amount provided");
     require(
         msg_asset_id() == AssetId::default(),
         "Incorrect asset provided",

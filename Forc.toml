@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "./src20",
+    "./SRC20",
     "./FuniSwapV2Router02",
     "./FuniSwapV2Pair"
 ]
