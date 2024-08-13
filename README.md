@@ -30,6 +30,12 @@ cd Tutorial-Sway-UniswapV2
 forc build
 ```
 
+Put your secrect key into the `tests/utils/setup.rs` file here:
+
+```rust
+pub const SECRECT_KEY: &str = "<YOUR_SECRECT_KEY_HERE>";
+```
+
 and run tests:
 ```bash
 cargo test

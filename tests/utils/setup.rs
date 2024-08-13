@@ -35,7 +35,7 @@ use sha2::{Digest, Sha256};
 pub const DEFAULT_GAS_LIMIT: u64 = 400000;
 pub const DEFAULT_SUB_ID: Bits256 = Bits256([0; 32]);
 
-pub const SECRECT_KEY: &str = "37787bd2cf8a35b8a5a515c45fa109852162596190babcd775a4d08cb1781e4d";
+pub const SECRECT_KEY: &str = "<YOUR_SECRECT_KEY_HERE>";
 
 pub const FUEL_NETWORK: &str = "127.0.0.1:4000";
 //pub const FUEL_NETWORK: &str = "testnet.fuel.network";
