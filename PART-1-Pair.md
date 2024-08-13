@@ -1,9 +1,9 @@
 # Funiswap Pair Contract
 
 In this part of the tutorial we will focus only on writing the FuniswapV2Pair contract 
-without the Oracle (we will add it in later parts). We will also write some tests.
+without the Oracle (we will add it in later parts).
 
-The code in this tutorial is written based on the `UniswapV2Pair.sol`.
+The contract written here is based on the `UniswapV2Pair.sol`.
 
 ## Introduction
 
@@ -11,7 +11,8 @@ The UniswapV2 Pair contract is part of the v2-core repo and its code can be foun
 We are using the same equations for calculating swaps and LP tokens to assets and vice-versa
 as the original UniswapV2 code. 
 
-I will use the terms coins and tokens interchangable as well as pair and pool. 
+I will use the terms coins and tokens interchangably as well as pair and pool to refer to the
+contract. 
 
 We will write four main methods of our contract:
 - `get_reserves()` - to get values of the reserves deposited at the pool.
@@ -20,8 +21,8 @@ We will write four main methods of our contract:
 - `swap()` - to execute a coin swap.
 
 The differences in code that are specific to Fuel will be those that relate
-to handling asset transfers as Fuel handles every asset in a native way, details will be explained in 
-the implementation section of each method.
+to handling asset transfers as Fuel handles every asset in a native way, details 
+will be explained in the implementation section of each method.
 
 Once we have our contract ready we will write some basic harness to test its functionality.
 We will use the same [framework](https://github.com/jecikpo/Tutorial-Fuel-SRC20/?tab=readme-ov-file#testing-framework-overview) for writing tests as we did in the SRC20 tutorial.
@@ -34,10 +35,10 @@ Let's start the implementation by creating a new Sway project:
 forc new FuniSwapV2
 ```
 
-Our FuniSwapV2 project will have a slightly different directory structure, as we will have 
+Our FuniSwapV2 DEX will have a slightly different directory structure, as we will have 
 multiple contracts in this project (this part only covers one, but we need to prepare it 
 for the next ones). Each contract will have a subdirectory within the project dir. The 
-harness directory will be common. Let's create the directory for the pair contract:
+harness tests directory will be common. Let's create the directory for the pair contract:
 
 ```bash
 cd FuniSwapV2
@@ -59,7 +60,7 @@ members = [
 EOF
 ```
 
-As you can see it references `Forc.toml` files in the `FuniSwapV2Pair` and `SRC20`. Yes, we will
+As you can see that it references `Forc.toml` files in the `FuniSwapV2Pair` and `SRC20`. Yes, we will
 need to have SRC20 contracts deployed to test our DEX. You can just copy the entire `SRC20` dir 
 from the Tutorial's [repo](https://github.com/jecikpo/Tutorial-Sway-UniswapV2/tree/main/SRC20).
 The SRC20 code there is similar to the one covered in the SRC20 tutorial, hence no point in 
@@ -83,7 +84,7 @@ projects directory it will build both the SRC20 and FuniSwapV2Pair contracts.
 
 ### Initial Code
 
-Now we can start building our main pool contract. First delete it's contents and let's go.
+Now we can start building our main pool contract: `funi_swap.sw`. First delete it's contents.
 
 Our Sway source file will be of contract type hence we start with defining it:
 
@@ -134,7 +135,7 @@ We will also define the minimum liquidity value just like it is in UniswapV2:
 const MINIMUM_LIQUIDITY: u64 = 1000;
 ```
 
-We have all constants that are necessary. Now let's put the `configurable` section, where 
+We have all necessary constants. Now let's put the `configurable` section, where 
 the variables defining our Asset IDs pair that the pool's reserves will be consisting of:
 
 ```rust
@@ -149,11 +150,6 @@ pool deployment. Now let's define our storage layout:
 
 ```rust
 storage {
-    /// FuniSwapV2Pair ABI
-
-    // we don't need the factory address storage, because we won't "initialize" the Pair 
-    // contract. In UniswapV2 the initialize() callable by factory sets the token0 and token1.
-
     // reserves - deposits turned into liquidity.
     reserve0: u64 = 0,
     reserve1: u64 = 0,
@@ -253,10 +249,10 @@ We are done with this method.
 
 ### mint Method
 `mint()` is used to provide liquidity for the pool and to obtain the LP token amount
-that represents the accordingly the amount of assets provided. The method works in almost the same way as 
+that represents accordingly the amount of assets provided. The method works in almost the same way as 
 in UniswapV2 original Solidity code:
 - it expects that the new reserves are provided beforehand. The amounts should be calculated correctly
-so that they don't shift the `k` value and the LP doesn't lose unnecessarily one of the tokens. 
+so that they don't decrease the `K` value and the LP doesn't lose unnecessarily one of the tokens. 
 - it reduces the initial mint by `MINIMUM_AMOUNT` to prevent the infamous "first depositor" issue.
 - the LP tokens can be minted (and sent) to a specified address.
 
@@ -370,7 +366,7 @@ need two. Hence we need to create some other mechanism in FuniSwapV2 for obtaini
 the tokens. We will solve that in the later parts where we will implement the Router
 contract.
 
-Now let's declare variables inside out method:
+Now let's declare variables inside out method and assign them some values:
 ```rust
         let total_supply = storage.total_supply.read();
         let liquidity = msg_amount();
@@ -382,9 +378,9 @@ We need here the `total_supply` and balances so that we can calculate the amount
 of reserves that are taken out. The amount of LP tokens provided by the caller is taken
 from the `msg_amount()`. From the SRC20 tutorial you should remember that the `msg_amount()`
 will return the amount for any Asset Id sent with the call. This might not seem to be what
-we want. We want to verify that the Asset Id sent is the Default Asset Id if this contract.
+we want. We must verify that the Asset Id sent is the Default Asset Id of this contract.
 Don't worry, this will be ensured later when burning tokens, as you cannot really burn 
-other tokens than those minted by our contract (Don't forget that to burn tokens in the UTXO
+other tokens than those minted by our contract (remember that to burn tokens in the UTXO
 model they need to be first sent to the contract).
 
 Now we can calculate how many tokens are we getting out:
@@ -449,10 +445,10 @@ We are done with `burn()`, let's move to `swap()`
 ### swap Method
 `swap()` is the core functionality of our pool contract. It's calculations of the "in"
 amounts is the same as in UniswapV2. It has the following features:
-- it expects the "in" tokens are already transfered to the contract before calling the 
+- it expects that the "in" tokens are already transfered to the contract before calling the 
 method. The user specifies the amount "out" and the amount "in" is calculated based on that,
 hence the user is expected to transfer the correct amount or the swap will either fail if it 
-is lower, or the swap succeds, but the excess stays at the pool to the benefit of all LPs.
+is lower, or it succeeds, but the excess stays at the pool to the benefit of all LPs.
 - the "out" tokens can be transfered to a specified address.
 - we will skip for now the callback functionality.
 
@@ -501,16 +497,18 @@ by this contract. This is a Sway library function.
 Next step would be to get the amounts "in" calculated from the recorded balances and the 
 stored reserves:
 ```rust
-        if amount0_out > 0 {
-            transfer(to, token0, amount0_out);
+        let mut amount0_in = 0;
+        let mut amount1_in = 0;
+
+        if balance0 > reserve0 - amount0_out {
+            amount0_in = balance0 - (reserve0 - amount0_out);
         }
-        if amount1_out > 0 {
-            transfer(to, token1, amount1_out);
+        if balance1 > reserve1 - amount1_out {
+            amount1_in = balance1 - (reserve1 - amount1_out);
         }
-        let balance0 = this_balance(token0);
-        let balance1 = this_balance(token1);
         require(amount0_in > 0 || amount1_in > 0, "Insufficient Input Amount");
 ```
+
 We check at the end if the tokens were actually transferred. 
 
 Now we add the code to verify the *K* invariant, based on UniswapV2:
@@ -522,7 +520,7 @@ Now we add the code to verify the *K* invariant, based on UniswapV2:
             "K Invariant Incorrect"
         );
 ```
-You can see that include the 0.3% of the swap fee here.
+You can see that the calculation includes the 0.3% of the swap fee here.
 
 Finally we conclude the implemantion of the `swap()` method by updating reserves 
 and logging the event:
@@ -605,6 +603,43 @@ forc build
 issued from the main project directory.
 
 ## Summary
+This first part of the tutorial concludes the building of the pair contract. 
+An attentive reader would notice the difference in sizes of the variables used 
+and its effect of the swapping amount range and pool reserve capacity.
 
+We used in our contract only `u64` types of variables which are significantly 
+smaller than `uint112` which in UniswapV2 uses to hold reserves accounting information
+and smaller than `uint256` which is used within the `K` validation math. This 
+means that our contracts can store much less reserves and can reach arithmetic 
+overflow even earlier here:
 
+```rust
+require(
+    balance0_adjusted * balance1_adjusted >= reserve0 * reserve1 * 1000000,
+    "K Invariant Incorrect"
+);
+```
+
+Let's see how bad it is. We will assume that our pool is a stablecoin pool 
+hence our `reserve0` and `reserve1` value will be comparable. We need to 
+get the maximum value supported by `u64` divide it by 1000000 and sqare root
+it, then make the same for Solidity code.
+
+The maximum value of reserves in that case would be around `4_294_967`, that
+is not much, comparing to what is possible in Solidity UniswapV2 code, which 
+is: 
+```
+340,282,366,920,938,463,463,374,607,431,768,211,455
+```
+and that is slightly less than can be held within the `uint112` variable, 
+which is:
+```
+5,192,296,858,534,827,628,530,496,329,220,095,897,600
+```
+
+We need to adjust our code as at this point our pair contract won't 
+support higher values. Even taking into account the fact that in Fuel
+the assets generally support smaller fractional parts (this is reduced
+when bridging assets from Ethereum mainnet). We will take care of this problem
+in later parts of the tutorial.
 

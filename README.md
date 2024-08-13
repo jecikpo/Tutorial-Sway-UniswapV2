@@ -8,7 +8,7 @@ Prerequisites:
 2) Familiarity with UniswapV2 code. Great resource can be found in the [UniswapV2 Book](https://www.rareskills.io/uniswap-v2-book).
 
 The tutorial is split into parts:
-1) [Part 1 - Pair](https://github.com/jecikpo/Tutorial-Sway-UniswapV2/PART-1-Pair.md) - the equivalent of UniswapV2 UniswapV2Pair.sol - where the core of the LP and swapping logic resides.
+1) [Part 1 - Pair](https://github.com/jecikpo/Tutorial-Sway-UniswapV2/blob/main/PART-1-Pair.md) - the equivalent of UniswapV2 UniswapV2Pair.sol - where the core of the LP and swapping logic resides.
 2) Part 2 - Pair Tests - Tests of the pair contract.
 2) Part 3 - Factory - this is where we define pool creations through the Factory (originally the UniswapV2Factory).
 3) Part 4 - Router - Here we define the periphery contract for interacting safely with different pools. 
