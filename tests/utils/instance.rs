@@ -3,15 +3,12 @@ use fuels::{
     types::ContractId, 
     types::{
         AssetId,
-        Bits256,
         Identity,
     }
 };
 
 use crate::utils::setup::{
     get_default_asset_id,
-    DEFAULT_GAS_LIMIT,
-    DEFAULT_SUB_ID,
 };
 
 #[derive(Clone)]

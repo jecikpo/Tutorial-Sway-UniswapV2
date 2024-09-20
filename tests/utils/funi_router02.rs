@@ -3,7 +3,6 @@ use fuels::{
     types::ContractId, 
     types::{
         AssetId,
-        Bits256,
         Identity,
     }
 };
@@ -13,9 +12,7 @@ use crate::utils::setup::{
     FuniSwapV2Router02Configurables,
     get_funi_router02_contract_instance,
     get_funi_router02_contract_instance_with_configurables,
-    get_default_asset_id,
     DEFAULT_GAS_LIMIT,
-    DEFAULT_SUB_ID,
 };
 
 use crate::utils::instance::{
@@ -95,7 +92,7 @@ impl ContractInstance<FuniSwapV2Router02<WalletUnlocked>> {
         .with_account(self.wallet)                   
         .methods()
         .withdraw(to)
-        .append_variable_outputs(2)
+        .with_variable_output_policy(VariableOutputPolicy::Exactly(2))
         .with_tx_policies(
             TxPolicies::default()
             .with_script_gas_limit(self.gas_limit)

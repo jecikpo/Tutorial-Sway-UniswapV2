@@ -159,7 +159,7 @@ impl ContractInstance<SRC20<WalletUnlocked>> {
         .with_account(self.wallet)
         .methods()
         .mint(recipient, sub_id, amount)
-        .append_variable_outputs(2)
+        .with_variable_output_policy(VariableOutputPolicy::Exactly(2))
         .with_tx_policies(
             TxPolicies::default()
             .with_script_gas_limit(self.gas_limit)
@@ -204,7 +204,7 @@ impl ContractInstance<SRC20<WalletUnlocked>> {
             .with_account(self.wallet)
             .methods()
             .total_supply(asset_id)
-            .append_variable_outputs(2)
+            .with_variable_output_policy(VariableOutputPolicy::Exactly(2))
             .with_tx_policies(
                 TxPolicies::default()
                 .with_script_gas_limit(self.gas_limit)

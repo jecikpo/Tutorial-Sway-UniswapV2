@@ -24,8 +24,12 @@ The differences in code that are specific to Fuel will be those that relate
 to handling asset transfers as Fuel handles every asset in a native way, details 
 will be explained in the implementation section of each method.
 
-Once we have our contract ready we will write some basic harness to test its functionality.
-We will use the same [framework](https://github.com/jecikpo/Tutorial-Fuel-SRC20/?tab=readme-ov-file#testing-framework-overview) for writing tests as we did in the SRC20 tutorial.
+Our methods will also have parameters of type `u64`, but the internal calculation
+and storage variables will be of type `u256` hence some conversions will be required.
+
+Once we have our contract ready we will write some basic harness to test its functionality
+in second part of this tutorial. We will use the same [framework](https://github.com/jecikpo/Tutorial-Fuel-SRC20/?tab=readme-ov-file#testing-framework-overview) 
+for writing tests as we did in the SRC20 tutorial.
 
 ## Implementation
 
@@ -132,7 +136,7 @@ They will be static, as don't need to complicate the code further by allow to cu
 We will also define the minimum liquidity value just like it is in UniswapV2:
 
 ```rust
-const MINIMUM_LIQUIDITY: u64 = 1000;
+const MINIMUM_LIQUIDITY: u256 = 1000;
 ```
 
 We have all necessary constants. Now let's put the `configurable` section, where 
@@ -151,19 +155,20 @@ pool deployment. Now let's define our storage layout:
 ```rust
 storage {
     // reserves - deposits turned into liquidity.
-    reserve0: u64 = 0,
-    reserve1: u64 = 0,
+    reserve0: u256 = 0,
+    reserve1: u256 = 0,
 
     /// SRC20 ABI
     // The total number of distinguishable assets minted by this contract.
     total_assets: u64 = 1,
     // The total supply of coins for a specific asset minted by this contract.
-    total_supply: u64 = 0,
+    total_supply: u256 = 0,
 }
 ```
 
 We define here `reserve0` and `reserve1` which will store the amount of reserve of both assets 
 held by the pool. The `total_assets` and `total_supply` are necessary to support the SRC20 standard.
+Note that they are of different types.
 
 Now let's define our `abi`. We will create two sections to logically separate the SRC20 ABI from the pool ABI.
 
@@ -225,7 +230,8 @@ It needs to go into the `impl FuniSwapV2Pair for Contract` block:
 ```rust
     #[storage(read)]
     fn get_reserves() -> (u64, u64) {
-        _get_reserves()
+        let (reserve0, reserve1) = _get_reserves();
+        (_to_u64(reserve0), _to_u64(reserve1))
     }
 ```
 
@@ -233,7 +239,7 @@ But, we don't have the `_get_reserves()` defined. This is going to be an interna
 of the ABI, hence we put it outside of the `impl` blocks. Just put it at the end of the source file:
 ```rust
 #[storage(read)]
-fn _get_reserves() -> (u64, u64) {
+fn _get_reserves() -> (u256, u256) {
     (
         storage.reserve0.read(),
         storage.reserve1.read()
@@ -244,6 +250,23 @@ fn _get_reserves() -> (u64, u64) {
 Why did we define the internal function like this and make a wrapper in the ABI `impl` block? Because
 in Sway unlike in Solidity you are not allowed to call internally the ABI methods and we will need
 access to the reserve values from within other methods.
+
+Note that the `_get_reserves()` returns `u256`, but our exteranl `get_reserves()` returns `u64`. 
+We need to convert the our `u256` to `u64` hence an internal helper function must be defined:
+```rust
+fn _to_u64(amount: u256) -> u64 {
+    require(amount <= u64::max().as_u256(), "Amount too high");
+    <u64 as TryFrom<u256>>::try_from(amount).unwrap()
+}
+```
+This will verify if our `u256` can fit into `u64`, we will use this helper function multiple times
+in our code as the internal calculations of our methods will work on `u256` values however our 
+ABI will operated on `u64`. 
+
+The reason for this is that Fuel standards define *Total Supply* of SRC20 assets as `u64` which
+means that values and quantities of coins cannot go over what the type can hold, hence there is 
+no point in using `u256` here. However internally Uniswap must operate on higher values than `u64` 
+type can hold, hence we need bigger space for our calculations, specifically when `K` is validated.
 
 We are done with this method.
 
@@ -267,10 +290,10 @@ Let's create the initial block:
 Now let's add the necessary variables:
 ```rust
         let total_supply = storage.total_supply.read();
-        let mut liquidity = 0;
+        let mut liquidity: u256 = 0;
         let (reserve0, reserve1) = _get_reserves();
-        let balance0 = this_balance(token0);
-        let balance1 = this_balance(token1);
+        let balance0 = this_balance(token0).as_u256();
+        let balance1 = this_balance(token1).as_u256();
         let amount0 = balance0 - reserve0;
         let amount1 = balance1 - reserve1;
 ```
@@ -312,20 +335,20 @@ We didn't define yet the `MintEvent` struct. We will do it at the end of the con
 dedicated section as it will involve library creation. The only thing left in this method is the return
 value:
 ```rust
-        liquidity
+        _to_u64(liquidity)
 ```
 
 Now, we used couple of internal functions here: `_min()`, `_mint()`, `_update()` which also need to be defined. 
 Their contents is quite self explanatory, let's add them at the end of the file:
 ```rust
 #[storage(read, write)]
-fn _mint(recipient: Identity, amount: u64) {
+fn _mint(recipient: Identity, amount: u256) {
     // Increment total supply of the asset and mint to the recipient.
     storage.total_supply.write(amount + storage.total_supply.read());
-    mint_to(recipient, DEFAULT_SUB_ID, amount);
+    mint_to(recipient, DEFAULT_SUB_ID, _to_u64(amount));
 }
 
-fn _min(a: u64, b: u64) -> u64 {
+fn _min(a: u256, b: u256) -> u256 {
     if a >= b {
         a
     } else {
@@ -334,7 +357,7 @@ fn _min(a: u64, b: u64) -> u64 {
 }
 
 #[storage(read, write)]
-fn _update(balance0: u64, balance1: u64, reserve0: u64, reserve1: u64) {
+fn _update(balance0: u256, balance1: u256, reserve0: u256, reserve1: u256) {
     storage.reserve0.write(balance0);
     storage.reserve1.write(balance1);
 }
@@ -369,10 +392,10 @@ contract.
 Now let's declare variables inside out method and assign them some values:
 ```rust
         let total_supply = storage.total_supply.read();
-        let liquidity = msg_amount();
+        let liquidity = msg_amount().as_u256();
         let (reserve0, reserve1) = _get_reserves();
-        let mut balance0 = this_balance(token0);
-        let mut balance1 = this_balance(token1);
+        let balance0 = this_balance(token0).as_u256();
+        let balance1 = this_balance(token1).as_u256();
 ```
 We need here the `total_supply` and balances so that we can calculate the amount 
 of reserves that are taken out. The amount of LP tokens provided by the caller is taken
@@ -394,8 +417,8 @@ and verify if none of the value is zero. Let's now burn the LP tokens and transf
 the liquidity out:
 ```rust
         _burn(liquidity);
-        transfer(to, token0, amount0);
-        transfer(to, token1, amount1);
+        transfer(to, token0, _to_u64(amount0));
+        transfer(to, token1, _to_u64(amount1));
 ```
 
 We will define `_burn()` at the end of this section, while `transfer()` is a function
@@ -404,8 +427,8 @@ the event and return the burned amounts.
 
 ```rust
         _update(
-            this_balance(token0),
-            this_balance(token1),
+            this_balance(token0).as_u256(),
+            this_balance(token1).as_u256(),
             reserve0,
             reserve1
         );
@@ -417,21 +440,21 @@ the event and return the burned amounts.
             amount1,
         });
 
-        (amount0, amount1)
+        (_to_u64(amount0), _to_u64(amount1))
 ```
 
 Let's define `_burn()`. This is an internal function hence we put it at the end of the file:
 
 ```rust
 #[storage(read, write)]
-fn _burn(amount: u64) {
+fn _burn(amount: u256) {
     require(
         msg_asset_id() == AssetId::default(),
         "Incorrect asset provided",
     );
-
+ 
     storage.total_supply.write(storage.total_supply.read() - amount);
-    burn(DEFAULT_SUB_ID, amount);
+    burn(DEFAULT_SUB_ID, _to_u64(amount));
 }
 ```
 First we require that the provided asset is the default Asset Id of our contract.
@@ -474,7 +497,7 @@ the amounts available.
 ```rust
         let (reserve0, reserve1) = _get_reserves();
         require(
-            amount0_out < reserve0 && amount1_out < reserve1, 
+            amount0_out.as_u256() < reserve0 && amount1_out.as_u256() < reserve1, 
             "Insufficient Liquidity"
         );
 ```
@@ -487,8 +510,8 @@ Now let's optimistically transfer the "out" tokens and record new balances:
         if amount1_out > 0 {
             transfer(to, token1, amount1_out);
         }
-        let balance0 = this_balance(token0);
-        let balance1 = this_balance(token1);
+        let balance0 = this_balance(token0).as_u256();
+        let balance1 = this_balance(token1).as_u256();
 ```
 
 `this_balance()` function returns the amount tokens of a given Asset Id that are held
@@ -497,14 +520,14 @@ by this contract. This is a Sway library function.
 Next step would be to get the amounts "in" calculated from the recorded balances and the 
 stored reserves:
 ```rust
-        let mut amount0_in = 0;
-        let mut amount1_in = 0;
+        let mut amount0_in: u256 = 0;
+        let mut amount1_in: u256 = 0;
 
-        if balance0 > reserve0 - amount0_out {
-            amount0_in = balance0 - (reserve0 - amount0_out);
+        if balance0 > reserve0 - amount0_out.as_u256() {
+            amount0_in = balance0 - (reserve0 - amount0_out.as_u256());
         }
-        if balance1 > reserve1 - amount1_out {
-            amount1_in = balance1 - (reserve1 - amount1_out);
+        if balance1 > reserve1 - amount1_out.as_u256() {
+            amount1_in = balance1 - (reserve1 - amount1_out.as_u256());
         }
         require(amount0_in > 0 || amount1_in > 0, "Insufficient Input Amount");
 ```
@@ -553,22 +576,22 @@ Next we add our three structs:
 pub struct MintEvent {
     pub sender: Identity,
     pub to: Identity,
-    pub amount0: u64,
-    pub amount1: u64,
+    pub amount0: u256,
+    pub amount1: u256,
 }
 
 pub struct BurnEvent {
     pub sender: Identity,
     pub to: Identity,
-    pub amount0: u64,
-    pub amount1: u64,
+    pub amount0: u256,
+    pub amount1: u256,
 }
 
 pub struct SwapEvent {
     pub sender: Identity,
     pub to: Identity,
-    pub amount0_in: u64,
-    pub amount1_in: u64,
+    pub amount0_in: u256,
+    pub amount1_in: u256,
     pub amount0_out: u64,
     pub amount1_out: u64,
 }
@@ -603,43 +626,5 @@ forc build
 issued from the main project directory.
 
 ## Summary
-This first part of the tutorial concludes the building of the pair contract. 
-An attentive reader would notice the difference in sizes of the variables used 
-and its effect of the swapping amount range and pool reserve capacity.
-
-We used in our contract only `u64` types of variables which are significantly 
-smaller than `uint112` which in UniswapV2 uses to hold reserves accounting information
-and smaller than `uint256` which is used within the `K` validation math. This 
-means that our contracts can store much less reserves and can reach arithmetic 
-overflow even earlier here:
-
-```rust
-require(
-    balance0_adjusted * balance1_adjusted >= reserve0 * reserve1 * 1000000,
-    "K Invariant Incorrect"
-);
-```
-
-Let's see how bad it is. We will assume that our pool is a stablecoin pool 
-hence our `reserve0` and `reserve1` value will be comparable. We need to 
-get the maximum value supported by `u64` divide it by 1000000 and sqare root
-it, then make the same for Solidity code.
-
-The maximum value of reserves in that case would be around `4_294_967`, that
-is not much, comparing to what is possible in Solidity UniswapV2 code, which 
-is: 
-```
-340,282,366,920,938,463,463,374,607,431,768,211,455
-```
-and that is slightly less than can be held within the `uint112` variable, 
-which is:
-```
-5,192,296,858,534,827,628,530,496,329,220,095,897,600
-```
-
-We need to adjust our code as at this point our pair contract won't 
-support higher values. Even taking into account the fact that in Fuel
-the assets generally support smaller fractional parts (this is reduced
-when bridging assets from Ethereum mainnet). We will take care of this problem
-in later parts of the tutorial.
-
+This first part of the tutorial concludes the building of the pair contract. In the 
+second part of this tutorial we will write some tests for it in Rust.

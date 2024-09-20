@@ -3,7 +3,6 @@ use fuels::{
     types::ContractId, 
     types::{
         AssetId,
-        Bits256,
         Identity,
     }
 };
@@ -15,7 +14,6 @@ use crate::utils::setup::{
     get_funi_pair_contract_instance_with_configurables,
     get_default_asset_id,
     DEFAULT_GAS_LIMIT,
-    DEFAULT_SUB_ID,
 };
 
 use crate::utils::instance::{
@@ -82,12 +80,12 @@ impl ContractInstance<FuniSwapV2Pair<WalletUnlocked>> {
     /*
       call mint() function.
      */
-     pub async fn call_mint(self, to: Identity) -> (u64) {
+     pub async fn call_mint(self, to: Identity) -> u64 {
         let result = self.instance.clone()
         .with_account(self.wallet)
         .methods()
         .mint(to)
-        .append_variable_outputs(1)
+        .with_variable_output_policy(VariableOutputPolicy::Exactly(1))
         .with_tx_policies(
             TxPolicies::default()
             .with_script_gas_limit(self.gas_limit)
@@ -107,7 +105,7 @@ impl ContractInstance<FuniSwapV2Pair<WalletUnlocked>> {
         .with_account(self.wallet)
         .methods()
         .burn(to)
-        .append_variable_outputs(2)
+        .with_variable_output_policy(VariableOutputPolicy::Exactly(2))
         .with_tx_policies(
             TxPolicies::default()
             .with_script_gas_limit(self.gas_limit)
@@ -132,7 +130,7 @@ impl ContractInstance<FuniSwapV2Pair<WalletUnlocked>> {
         .with_account(self.wallet)
         .methods()
         .swap(amount0_out, amount1_out, to)
-        .append_variable_outputs(2)
+        .with_variable_output_policy(VariableOutputPolicy::Exactly(2))
         .with_tx_policies(
             TxPolicies::default()
             .with_script_gas_limit(self.gas_limit)
