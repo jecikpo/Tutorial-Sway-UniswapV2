@@ -1,5 +1,4 @@
 use crate::utils::setup::*;
-use crate::utils::src20::*;
 use crate::utils::instance::*;
 
 use fuels::{

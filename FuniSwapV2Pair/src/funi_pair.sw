@@ -272,7 +272,7 @@ fn _burn(amount: u256) {
 }
 
 fn _min(a: u256, b: u256) -> u256 {
-    if a >= b {
+    if a < b {
         a
     } else {
         b
