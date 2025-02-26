@@ -2,5 +2,6 @@
 members = [
     "./SRC20",
     "./FuniSwapV2Router02",
-    "./FuniSwapV2Pair"
+    "./FuniSwapV2Pair",
+    "./FuniSwapV2Factory",
 ]

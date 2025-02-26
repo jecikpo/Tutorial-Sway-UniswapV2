@@ -24,6 +24,10 @@ abigen!(
     Contract(
         name = "FuniSwapV2Router02",
         abi = "./FuniSwapV2Router02/out/debug/FuniSwapV2Router02-abi.json"
+    ),
+    Contract(
+        name = "FuniSwapV2Factory",
+        abi = "./FuniSwapV2Factory/out/debug/FuniSwapV2Factory-abi.json"
     )
 );
 
@@ -35,7 +39,7 @@ use sha2::{Digest, Sha256};
 pub const DEFAULT_GAS_LIMIT: u64 = 400000;
 pub const DEFAULT_SUB_ID: Bits256 = Bits256([0; 32]);
 
-pub const SECRECT_KEY: &str = "<YOUR_SECRECT_KEY_HERE>";
+pub const SECRECT_KEY: &str = "767e2342a22f23440a0755d24b61112c5cd700a1d8100b873bb7fca2ef2779e2";
 
 pub const FUEL_NETWORK: &str = "127.0.0.1:4000";
 //pub const FUEL_NETWORK: &str = "testnet.fuel.network";
@@ -227,6 +231,29 @@ pub fn create_funi_router02_configurables(token0: AssetId, token1: AssetId) -> F
     FuniSwapV2Router02Configurables::default()
     .with_token0(token0).unwrap()
     .with_token1(token1).unwrap()
+}
+
+/*
+ * ---- FuniSwapV2Factory Setup Functions
+ */
+
+ pub async fn get_funi_factory_contract_instance() -> (FuniSwapV2Factory<WalletUnlocked>, ContractId, WalletUnlocked, AssetId) {
+    
+    let (provider, wallet, salt) = get_wallet_provider_salt().await;
+
+    let id = Contract::load_from(
+        "./FuniSwapV2Factory/out/debug/FuniSwapV2Factory.bin",
+        LoadConfiguration::default().with_salt(salt),
+    )
+    .unwrap()
+    .deploy(&wallet, TxPolicies::default().with_script_gas_limit(400000).with_max_fee(400000))
+    .await
+    .unwrap();
+
+    let instance = FuniSwapV2Factory::new(id.clone(), wallet.clone());
+    let base_asset_id = provider.base_asset_id();
+
+    (instance, id.into(), wallet, *base_asset_id)
 }
 
 /*
